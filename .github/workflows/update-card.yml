@@ -1,0 +1,51 @@
+name: Atualizar card PokeDev
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/generate-pokedev.mjs
+      - .github/workflows/update-card.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pokedev-card
+  cancel-in-progress: true
+
+jobs:
+  generate-card:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Gerar card com dados reais do GitHub
+        run: node scripts/generate-pokedev.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+
+      - name: Publicar card atualizado
+        run: |
+          if git diff --quiet -- assets/pokedev-card.svg; then
+            echo "Nenhuma mudança no card."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/pokedev-card.svg
+          git commit -m "chore: update PokeDev card"
+          git push
